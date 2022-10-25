@@ -1,4 +1,5 @@
 import { createRoot } from 'react-dom/client'
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import './index.css'
 import App from './App'
 import React from "react"
@@ -14,7 +15,11 @@ const root = createRoot(container)
 root.render(
     <React.StrictMode>
         <Provider store={store}>
-            <App/>
+            <Router>
+                <Routes>
+                    <Route path="/*" element={<App />} />
+                </Routes>
+            </Router>
         </Provider>
     </React.StrictMode>
 )
