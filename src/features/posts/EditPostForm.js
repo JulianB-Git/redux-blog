@@ -1,41 +1,51 @@
 import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 
-import { addNewPost } from "./postsSlice";
+import { selectPostById, updatePost, deletePost } from "./postsSlice";
 import { selectAllUsers } from "../users/usersSlice";
 
-const AddPostForm = () => {
-    const dispatch = useDispatch()
+const EditPostForm = () => {
+    const { postId } = useParams()
     const navigate = useNavigate()
+    const dispatch = useDispatch()
 
-    const [title, setTitle] = useState('')
-    const [content, setContent] = useState('')
-    const [userId, setUserId] = useState('')
-    const [addRequestStatus, setAddRequestStatus] = useState('idle')
-
+    const post = useSelector((state) => selectPostById(state, Number(postId)))
     const users = useSelector(selectAllUsers)
+
+    const [title, setTitle] = useState(post?.title)
+    const [content, setContent] = useState(post?.body)
+    const [userId, setUserId] = useState(post?.userId)
+    const [requestStatus, setRequestStatus] = useState('idle')
+
+    if(!post) {
+        return (
+            <section>
+                <h2>Post Not found</h2>
+            </section>
+        )
+    }
 
     const onTitleChange = e => setTitle(e.target.value)
     const onContentChange = e => setContent(e.target.value)
     const onAuthorChange = e => setUserId(e.target.value)
 
-    const canSave = [title, content, userId].every(Boolean) && addRequestStatus === 'idle'
+    const canSave = [title, content, userId].every(Boolean) && requestStatus === 'idle'
 
     const onSubmit = () => {
         if(canSave) {
             try {
-                setAddRequestStatus('pending')
-                dispatch(addNewPost({title, body: content, userId})).unwrap()
+                setRequestStatus('pending')
+                dispatch(updatePost({ id: post.id, title, body: content, userId, reactions: post.reactions })).unwrap()
 
                 setTitle('')
                 setContent('')
                 setUserId('')
-                navigate('/')
+                navigate(`/post/${postId}`)
             } catch (err) {
                 console.error('Failed to save the post', err)
             } finally {
-                setAddRequestStatus('idle')
+                setRequestStatus('idle')
             }
         }
     }
@@ -46,9 +56,25 @@ const AddPostForm = () => {
         </option>
     ))
 
+    const onDelete = () => {
+        try {
+            setRequestStatus('pending')
+            dispatch(deletePost({ id: post.id })).unwrap()
+
+            setTitle('')
+            setContent('')
+            setUserId('')
+            navigate('/')
+        } catch (err) {
+            console.error('Failed to delete the post', err)
+        } finally {
+            setRequestStatus('idle')
+        }
+    }
+
     return (
         <section>
-            <h2>Add a new post</h2>
+            <h2>Edit Post</h2>
             <form>
                 <label htmlFor="postTitle">Post Title:</label>
                 <input
@@ -59,7 +85,7 @@ const AddPostForm = () => {
                     onChange={onTitleChange}
                 />
                 <label htmlFor="postAuthor">Author:</label>
-                <select id="postAuthor" value={userId} onChange={onAuthorChange}>
+                <select id="postAuthor" defaultValue={userId} onChange={onAuthorChange}>
                     <option value=""></option>
                     {userOptions}
                 </select>
@@ -71,9 +97,10 @@ const AddPostForm = () => {
                     onChange={onContentChange}
                 />
                 <button disabled={!canSave} type="button" onClick={onSubmit}>Save Post</button>
+                <button className="deleteButton" type="button" onClick={onDelete}>Delete Post</button>
             </form>
         </section>
     )
 }
 
-export default AddPostForm
+export default EditPostForm

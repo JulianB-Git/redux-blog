@@ -28,6 +28,28 @@ export const addNewPost = createAsyncThunk('posts/addNewPost', async (initialPos
     }
 })
 
+export const updatePost = createAsyncThunk('posts/updatePost', async (initialPost) => {
+    const { id } = initialPost
+    try {
+        const response = await axios.put(`${POSTS_URL}/${id}`, initialPost)
+        return response.data
+    } catch(err) {
+        //return err.message
+        return initialPost //Done only for updating created posts since it does not exist on the jsonplaceholder fake api
+    }
+})
+
+export const deletePost = createAsyncThunk('posts/deletePost', async (initialPost) => {
+    const { id } = initialPost
+    try {
+        const response = await axios.delete(`${POSTS_URL}/${id}`, initialPost)
+        if(response?.status === 200) return initialPost
+        return `${response?.status}: ${response?.statusText}`
+    } catch(err) {
+        return err.message
+    }
+})
+
 const postsSlice = createSlice({
     name: 'posts',
     initialState,
@@ -74,7 +96,6 @@ const postsSlice = createSlice({
 
                 let min = 1
                 const loadedPosts = action.payload.map(post => {
-                    post.id = nanoid()
                     post.date = sub(new Date(), { minutes: min++ }).toISOString()
                     post.reactions = {
                         thumbsUp: 0,
@@ -87,16 +108,23 @@ const postsSlice = createSlice({
                     return post
                 })
 
-                state.posts = state.posts.concat(loadedPosts)
+                state.posts = loadedPosts
             })
             .addCase(fetchPosts.rejected, (state,action) => {
                 state.status = 'failed'
                 state.error = action.error.message
             })
             .addCase(addNewPost.fulfilled, (state,action) => {
-                action.payload.id = nanoid()
+                const sortedPosts = state.posts.sort((a, b) => {
+                    if (a.id > b.id) return 1
+                    if (a.id < b.id) return -1
+                    return 0
+                })
+                action.payload.id = sortedPosts[sortedPosts.length - 1].id + 1;
+                // End fix for fake API post IDs 
+
                 action.payload.userId = Number(action.payload.userId)
-                action.payload.date = new Date().toISOString()
+                action.payload.date = new Date().toISOString();
                 action.payload.reactions = {
                     thumbsUp: 0,
                     wow: 0,
@@ -106,6 +134,29 @@ const postsSlice = createSlice({
                 }
                 console.log(action.payload)
                 state.posts.push(action.payload)
+            })
+            .addCase(updatePost.fulfilled, (state, action) => {
+                if(!action.payload?.id) {
+                    console.log('Update could not be completed')
+                    console.log(action.payload)
+                    return
+                }
+
+                const { id } = action.payload
+                action.payload.date = new Date().toISOString()
+                const posts = state.posts.filter(post => post.id !== id)
+                state.posts = [...posts, action.payload]
+            })
+            .addCase(deletePost.fulfilled, (state, action) => {
+                if(!action.payload?.id) {
+                    console.log('Delete could not be completed')
+                    console.log(action.payload)
+                    return
+                }
+
+                const { id } = action.payload
+                const posts = state.posts.filter(post => post.id !== id)
+                state.posts = posts
             })
     }
 })
